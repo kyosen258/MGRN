@@ -67,7 +67,6 @@ class demo_net(nn.Module):
         self.proc_prob_integ = trd_encoder(emb_dim=int(voc_size[2]-1), device=device)
 
         self.gender_block = nn.Parameter(torch.eye(voc_size[2]-1,device=device,requires_grad=True))
-        # self.female_block = nn.Parameter(torch.eye(voc_size[2], device=device, requires_grad=True))
 
         self.patient_linear = nn.Sequential(*[nn.Linear(self.med_dim, self.med_dim, device=device),
                                               nn.Tanh()
@@ -101,32 +100,26 @@ class demo_net(nn.Module):
 
     def history_gate_unit(self, patient_rep, all_vst_drug, contacter, his_fuser=None):
 
-        his_seq_mem = patient_rep[:-1]# 将患者表征序列最后一位去掉,然后在第一位填充0,相当于整体往后推一位vst
+        his_seq_mem = patient_rep[:-1
         his_seq_mem = torch.cat([torch.zeros_like(patient_rep[0]).unsqueeze(dim=0), his_seq_mem], dim=0)
 
         his_seq_container = torch.zeros([patient_rep.size()[0],
                                          patient_rep.size()[0],
                                          patient_rep.size()[1] * 2],
-                                        device=self.device)  # 生成二元历史信息交互对的容器,二元历史信息交互对共有vst*vst对
+                                        device=self.device)  
 
         for i in range((len(patient_rep))):
             for j in range((len(his_seq_mem))):
                 if j <= i:
                     his_seq_container[i, j] = torch.concat([patient_rep[i],
-                                                            his_seq_mem[j]], dim=-1)  # 按照穷举法将vst两两配对拼接放入容器
-        his_seq_container = contacter(his_seq_container)  # 将拼接后的历史信息二元对经过一层MLP,生成该对vst对对应历史药物真实值的门控权重向量
+                                                            his_seq_mem[j]], dim=-1)  
+        his_seq_container = contacter(his_seq_container)  
 
-        # 生成mask,虽然for循环中已经有相当于mask的过程,
-        # 但是在后面的contacter网络的MLP结构中bias部分(也就是常数偏置项),会为container的"0"的部分重新赋值,导致非常离谱的性能,
-        # 因为能够直接接触到groundtruth,所以可以直接将性能提升到第一个epoch f1就到0.73的地步.
-        # 而去掉contacter中的bias之后对性能影响也非常之高,会将性能直接降低一个点,相当于his_unit基本起不了作用.
-        # 所以for循环中判断语句<j <= i>仅仅是为了减少神经网络的计算量,而mask的过程需要另设结构,
-        # 发现这一问题我们花费了一个晚上加上一整天的代价.
         his_seq_filter_mask = torch.tril(torch.ones([patient_rep.size()[0],
                                                      patient_rep.size()[0]], device=self.device)).unsqueeze(dim=-1)
 
-        his_seq_enhance = his_seq_filter_mask * his_seq_container * all_vst_drug  # 利用门控向量为历史药物分配权重
-        his_seq_enhance = his_seq_enhance.sum(dim=1)  # 然后将对应同一个vst的历史药物直接加和
+        his_seq_enhance = his_seq_filter_mask * his_seq_container * all_vst_drug  
+        his_seq_enhance = his_seq_enhance.sum(dim=1)  
 
         return his_seq_enhance.reshape(-1, self.voc_size[2] - 1)
 
@@ -141,7 +134,7 @@ class demo_net(nn.Module):
                                                                    max_proc_num, self.emb_dim))
 
         d_mask_matrix = diag_mask.view(batch_size * max_visit_num, max_diag_num).unsqueeze(dim=1).unsqueeze(
-            dim=1).repeat(1, self.nhead, max_diag_num, 1)  # [batch*seq, nhead, input_length, output_length]
+            dim=1).repeat(1, self.nhead, max_diag_num, 1)  
         d_mask_matrix = d_mask_matrix.view(batch_size * max_visit_num * self.nhead, max_diag_num, max_diag_num)
 
         p_mask_matrix = proc_mask.view(batch_size * max_visit_num, max_proc_num).unsqueeze(dim=1).unsqueeze(
@@ -159,15 +152,10 @@ class demo_net(nn.Module):
         proc_rep = proc_rep_1 + proc_rep_2
         patient_rep = torch.concat([diag_rep,proc_rep],dim=-1)
         patient_rep = self.final_linear(patient_rep)
-        # print('==================================================')
-        # print(diag_seq)
+
         diag_seq = self.diag_linear_2(diag_seq)
         proc_seq = self.proc_linear_2(proc_seq)
-        # print('**************************************************')
-        # print(diag_seq)
 
-        # diag_seq = self.diag_prob_integ(diag_seq)[1].transpose(0,1)
-        # proc_seq = self.proc_prob_integ(proc_seq)[1].transpose(0,1)
 
         return diag_seq,proc_seq,patient_rep
     def decoder(self,diag,proc,ages,gender=None,drug_mem=None,patient_rep=None):
@@ -217,19 +205,10 @@ class demo_net(nn.Module):
         # ==============================================
 
         prob = final_prob_1 + his_enhance + final_prob_2 + his_seq_enhance + final_prob_3 + prob_seq_enhance
-        # prob = final_prob_3 + prob_seq_enhance
-        prob = prob.reshape(-1,self.voc_size[2]-1)
-        # print(gender[0][0])
-        # prob = prob@self.gender_block*(1-gender[0][0]) + prob*gender[0][0]
-        prob = F.sigmoid(prob)
 
-        # prob_patient_integ_out = (final_prob_1 + his_enhance).reshape(-1, self.voc_size[2] - 1)
-        # prob_patient_integ_out_padder = torch.full_like(prob.T[0], 0).unsqueeze(dim=0).T
-        # prob_patient_integ_out = torch.cat([prob_patient_integ_out_padder, prob_patient_integ_out], dim=-1)
-        #
-        # his_seq_out = (final_prob_1 + his_enhance).reshape(-1, self.voc_size[2] - 1)
-        # his_seq_out_padder = torch.full_like(prob.T[0], 0).unsqueeze(dim=0).T
-        # his_seq_out = torch.cat([his_seq_out_padder, his_seq_out], dim=-1)
+        prob = prob.reshape(-1,self.voc_size[2]-1)
+
+        prob = F.sigmoid(prob)
 
         prob_padder = torch.full_like(prob.T[0], 0).unsqueeze(dim=0).T
         prob = torch.cat([prob_padder, prob], dim=-1)
@@ -237,8 +216,7 @@ class demo_net(nn.Module):
         return prob,prob*prob.T.unsqueeze(dim=-1),\
                [diag_prob_1,diag_prob_2],\
                [proc_prob_1,proc_prob_2]
-               # F.sigmoid(prob_patient_integ_out),\
-               # F.sigmoid(his_seq_out)
+
 
     def forward(self,input,diag_mask=None,proc_mask=None,ages=None,gender=None,drug_mem=None):
 
