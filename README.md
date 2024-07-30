@@ -11,6 +11,10 @@ Make sure your local environment has the following installed:
 
 
 * `pytorch>=1.12.1 & <=1.9`
+* `dill>=0.3.6`
+* `scikit-learn>=1.1.3`
+* `numpy>=1.23.4`
+
 
 ## Datastes
 
