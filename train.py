@@ -61,12 +61,6 @@ def main(temp_number=None):
 
 
     data = dill.load(open(r'records_final.pkl', 'rb'))[::100]
-    # case_num = 1100
-    # data_case = [data[case_num]]
-    # dill.dump(data_case,open('datas/iv_case/{}.pkl'.format(case_num),mode='wb'))
-
-    # vst_exper = vst_experiment(device=device)
-    # data = vst_exper.data_visit_cut(data,temp_number)
 
     for patient in range(len(data)):
         for vst in range(len(data[patient])):
@@ -74,58 +68,37 @@ def main(temp_number=None):
             data[patient][vst][0]=[i+1 for i in data[patient][vst][0]]
             data[patient][vst][1]=[i+1 for i in data[patient][vst][1]]
             data[patient][vst][2]=[i+1 for i in data[patient][vst][2]]
-    # print(data)
-    # case_loader = list(DataLoader(data_case, batch_size=1, collate_fn=pad_batch_v2_eval, shuffle=True, pin_memory=False))
-
 
     split_point = int(len(data) * 2 / 3)
     data_train = data[:split_point]
-    # data_train = remove_elements_by_percentage(data_train,temp)
-    # print('当前随机移除了{}%的训练集数据'.format(temp))
-    # # data_train = data[:split_point][::5]
+
     eval_len = int(len(data[split_point:]) / 2)
     data_test = data[split_point:split_point + eval_len]
     data_eval = data[split_point + eval_len:]
 
-    # voc = dill.load(open(r'voc_final_4.pkl', 'rb'))
     ddi_matrix = dill.load(open(r'ddi_A_final.pkl','rb'))
     ddi_4_matrix = dill.load(open(r'ddi_A_final.pkl','rb'))
-    #如果现在是mimic-iv的话
+
     ddi_matrix = ddi_4_matrix
     #=========================================
     ehr_matrix = dill.load(open('datas/ehr_adj_final.pkl', 'rb'))
     ddi_matrix = torch.tensor(ddi_matrix,device=device)
-    # ddi_matrix = torch.concat([torch.zeros_like(ddi_matrix[0]).unsqueeze(dim=-1),ddi_matrix],dim=-1)
-    # ddi_matrix = torch.concat([torch.zeros_like(ddi_matrix[0]).unsqueeze(dim=0),ddi_matrix],dim=0)
-    # return None
 
     print(voc_size)
 
 
     train_loader = DataLoader(data_train, batch_size=1, collate_fn=pad_batch_v2_train, shuffle=True, pin_memory=False)
     eval_loader = DataLoader(data_eval, batch_size=1, collate_fn=pad_batch_v2_eval, shuffle=True, pin_memory=False)
-    # case_loader = DataLoader(data_case, batch_size=1, collate_fn=pad_batch_v2_eval, shuffle=True, pin_memory=False)
+
     model = demo_net(emb_dim=64, voc_size=voc_size, device=device, ddi_graph = ddi_4_matrix,).to(device)
-    # for name, param in model.named_parameters():
-    #     print(f"Parameter {name} requires gradient: {param.requires_grad}")
-    # return None
-    # model.load_state_dict(torch.load(r'state_dict\iii\iii_f1_0.7042.pt'))
-    # for patient in list(eval_loader):
-    #     for med_batch in patient[2]:
-    #         for visit in med_batch:
-    #             print(visit)
+
     print('parameters', get_n_params(model))
     optimizer = Adam(model.parameters(), lr=0.0001)
     EPOCH = 30
     demo_loss_1 = nn.BCELoss()
-    # demo_loss_1 = FocalLoss()
+
     demo_loss_2 = nn.MultiLabelMarginLoss()
-    # demo_loss_3 = InfoNCE()
-    # demo_loss_4 = InfoNCE()
-    # f_case = open(r'C:\Users\15007\Desktop\case_study\MGRN\iv\{}.txt'.format(case_num),'w+')
-    # case_study(model,case_loader,voc,file=f_case)
-    # f_case.close()
-    # return None
+
     f = open(r'C:\Users\15007\Desktop\multi_vst\MGRN\iii\{}.txt'.format(temp_number), mode='w+')
     for epoch in range(EPOCH):
         ddi_rate = 0
@@ -137,8 +110,7 @@ def main(temp_number=None):
         model.train()
         model_train = True
         all_his = True
-        # case_study(model, list(train_loader)[::100], voc)
-        # return None
+
         if model_train:
             for index,datas in enumerate(train_loader):
                 # [diag,proc,drug,age,gender]
@@ -201,10 +173,6 @@ def main(temp_number=None):
                 co = 0.02
 
                 loss = loss_1 + 0.02*loss_2# + co*loss_5 + co*loss_6 + co*loss_7
-                # ddi_gt_adjust = (1-gt_container)*(1-gt_container).unsqueeze(dim=-1)
-                # ddi_loss = (ddi_gt_adjust*ddi_matrix*output[1]).sum(dim=-1)
-                # if ddi_rate >= 0.7:
-                #     loss += 0.01*ddi_loss
 
                 loss.backward()
                 optimizer.step()
@@ -229,9 +197,7 @@ def main(temp_number=None):
         for index, datas in enumerate(eval_loader):
             datas = [i.to(device) for i in datas]
             output = model(datas)[0]
-            # output = model(datas)[0]
-            # output = vst_exper.eval_visit_costrain(output,temp_number)
-            # gt_data = vst_exper.eval_visit_costrain(datas[2][0],temp_number)
+
             gt_data = datas[2][0]
 
             for idx,vst in enumerate(output.reshape(-1,voc_size[2])):
@@ -264,9 +230,6 @@ def main(temp_number=None):
                     f1 = (2.0 * precise * recall) / (precise + recall)
                 avg_f1 += f1
 
-                # ddi_cnt += ddi_rate_score(ddi_temp_container,ddi_matrix)[0]
-                # ddi_all_cnt += ddi_rate_score(ddi_temp_container,ddi_matrix)[1]
-
                 count += 1
 
             llprint('\r|' + \
@@ -277,9 +240,7 @@ def main(temp_number=None):
         avg_precise=avg_precise/count
         avg_recall=avg_recall/count
         avg_f1=avg_f1/count
-        # print('\n\n\n')
-        # print(len(gt_container))
-        # print('\n\n\n')
+
         jac,prauc,F_1 = multi_label_metric(gt_container,labels_container,prob_container,voc_size=voc_size)
         try:
             ddi_rate = ddi_cnt/ddi_all_cnt
@@ -295,15 +256,7 @@ def main(temp_number=None):
               'ddi_rate = {}\n'.format(ddi_rate),
               'avg_med = {}\n'.format(avg_med/count)
                )
-        # print('\navg_prc = {}\n'.format(avg_precise),
-        #       'avg_rec = {}\n'.format(avg_recall),
-        #       'jac = {}\n'.format(jac),
-        #       'prauc = {}\n'.format(prauc),
-        #       'avg_f1 = {}\n'.format(avg_f1),
-        #       'ddi_rate = {}\n'.format(ddi_rate),
-        #       'avg_med = {}\n'.format(avg_med / count),
-        #       '============================================='
-        #       ,file=f)
+
 
         print(f'epoch{epoch}\n')
 
