@@ -17,7 +17,7 @@ Make sure your local environment has the following installed:
 We provide the dataset in the [datas](datas/) folder.
 
 | Data                          | Source | Description |
-|---| --- |---|
+|-----| ----- |---|
 | MIMIC-III                     | [This link](https://physionet.org/content/mimiciii/1.4/) | MIMIC-III is freely-available database from 2001 to 2012, which is associated with over forty thousand patients who stayed in critical care units |
 | MIMIC-IV                      | [This link](https://physionet.org/content/mimiciv/2.2/) | MIMIC-IV is freely-available database between 2008 - 2019, which is associated with 299,712 patients who stayed in critical care units            |
 
